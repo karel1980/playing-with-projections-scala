@@ -37,9 +37,12 @@ if __name__ == "__main__":
     top_quizes = quiz_start_counts.orderBy(F.col('count').desc()).limit(10)
 
     # extra count because join does not preserve order
-    top_quizes_with_title = top_quizes.join(quiz_created, 'quiz_id').orderBy(F.col('count').desc())
+    top_quizes_with_title = top_quizes.join(quiz_created, 'quiz_id')[['quiz_title','count']] \
+        .orderBy(F.col('count').desc()) \
+        .collect()
 
-    for quiz in top_quizes_with_title.collect():
-        print("top quiz", quiz)
+    print("Top quizzes all time:")
+    for quiz in top_quizes_with_title:
+        print("%s: %d"%(quiz.quiz_title, quiz['count']))
 
     spark.stop()
