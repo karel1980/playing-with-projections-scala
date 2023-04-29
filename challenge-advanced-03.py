@@ -22,25 +22,33 @@ if __name__ == "__main__":
         .json(sys.argv[1])
 
     # quiz_id -> quiz_title
-    quiz_created = lines.filter(lines.type == 'QuizWasCreated')['payload.quiz_id', 'payload.quiz_title', 'timestamp']
+    quiz_created = lines.filter(lines.type == 'QuizWasCreated')['payload.quiz_id', 'payload.quiz_title']
 
     # game_id -> quiz_id
     game_opened = lines.filter(lines.type == 'GameWasOpened')['payload.game_id','payload.quiz_id']
 
     # game_id
-    game_started = lines.filter(lines.type == 'GameWasStarted')['payload.game_id', 'timestamp']
-    game_started = game_started.withColumn('year_month', F.date_format(F.to_timestamp('timestamp'), 'yyyy-MM')).groupBy('year_month', 'game_id').count()
+    player_joined = lines.filter(lines.type == 'PlayerJoinedGame')['payload.game_id', 'timestamp'].select(
+        'game_id', F.date_format(F.to_timestamp('timestamp'), 'yyyy-MM').alias('year_month'))
 
-    quiz_start_counts = game_started.join(game_opened, 'game_id').groupBy(['year_month', 'quiz_id']).count()
+    top_quizes = player_joined \
+        .join(game_opened, 'game_id') \
+        .groupBy('quiz_id').count() \
+        .join(quiz_created, 'quiz_id') \
+        .orderBy(F.col('count').desc()) \
+        .select('quiz_title','count')
+
+    top_quizes.show()
 
     windowMonth = Window.partitionBy("year_month").orderBy(col("count").desc())
 
-    top_quizes_per_month = quiz_start_counts.withColumn("row",row_number().over(windowMonth)) \
+    top_quizes_by_month = player_joined.groupBy('year_month', 'game_id').count() \
+        .join(game_opened, 'game_id') \
+        .withColumn("row", row_number().over(windowMonth)) \
         .filter(col("row") <= 10) \
         .join(quiz_created, 'quiz_id') \
-        .orderBy(col("year_month").desc()) \
-        .select('year_month', 'quiz_title', 'count')
+        .select('year_month','quiz_title','count')
 
-    top_quizes_per_month.show(1000, False)
+    top_quizes_by_month.show()
 
     spark.stop()
