@@ -10,7 +10,7 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     spark = SparkSession.builder \
-        .appName("PlayingWithProjections01") \
+        .appName("PlayingWithProjections-basic-01") \
         .getOrCreate()
 
     lines = spark.read \
